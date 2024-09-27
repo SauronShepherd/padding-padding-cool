@@ -4,22 +4,24 @@ import org.apache.spark.sql.functions._
 
 object PaddingVersion2 {
 
-  val numRows = 16000000
-  val initChar = "+"
-  val padChar = "-"
-  val maxChars = 100
-
   def main(args: Array[String]): Unit = {
     // Initialize Spark Session
     val spark = SparkSession.builder
       .master("local[*]")
       .getOrCreate()
 
+    // Define constants
+    val numRows = spark.sparkContext.defaultParallelism * 10000000
+    val initChar = "+"
+    val padChar = "-"
+    val maxChars = 100
+
     // Create and populate a new dataframe
     val startPopulating = System.currentTimeMillis()
     val populatedDf = spark.range(numRows)
-                           .withColumn("str", lit("+"))
+                           .withColumn("str", lit(initChar))
                            .drop("id")
+    populatedDf.cache().count()
     val timePopulating = System.currentTimeMillis() - startPopulating
 
     // Define the UDF to pad a string with a character on both sides
@@ -31,10 +33,8 @@ object PaddingVersion2 {
     })
 
     // Apply the padding UDF, replacing the existing column
-    val paddedDf = populatedDf.withColumn("str", padStringUDF(col("str"), lit(maxChars)))
-
-    // Show the rows
     val startPadding = System.currentTimeMillis()
+    val paddedDf = populatedDf.withColumn("str", padStringUDF(col("str"), lit(maxChars)))
     paddedDf.show(truncate=false)
     val timePadding = System.currentTimeMillis() - startPadding
 

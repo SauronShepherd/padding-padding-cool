@@ -4,31 +4,31 @@ import org.apache.spark.sql.functions._
 
 object PaddingVersion4 {
 
-  val numRows = 1000000000
-  val initChar = "+"
-  val padChar = "-"
-  val maxChars = 100
-
   def main(args: Array[String]): Unit = {
     // Initialize Spark Session
     val spark = SparkSession.builder
       .master("local[*]")
       .getOrCreate()
 
+    // Define constants
+    val numRows = spark.sparkContext.defaultParallelism * 10000000
+    val initChar = "+"
+    val padChar = "-"
+    val maxChars = 100
+
     // Create and populate a new dataframe
     val startPopulating = System.currentTimeMillis()
     val populatedDf = spark.range(numRows)
-      .withColumn("str", lit("+"))
+      .withColumn("str", lit(initChar))
       .drop("id")
+    populatedDf.cache().count()
     val timePopulating = System.currentTimeMillis() - startPopulating
 
     // Padding using built-in string functions, replacing the existing column
+    val startPadding = System.currentTimeMillis()
     val paddedDf = populatedDf.withColumn("str",
       expr(s"""LPAD(RPAD(str, LENGTH(str) + ($maxChars - LENGTH(str)) / 2, '$padChar'), $maxChars, '$padChar')""")
     )
-
-    // Write the dataframe using no-op
-    val startPadding = System.currentTimeMillis()
     paddedDf.write.format("noop").mode("overwrite").save()
     val timePadding = System.currentTimeMillis() - startPadding
 

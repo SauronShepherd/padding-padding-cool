@@ -4,11 +4,6 @@ import org.apache.spark.sql.functions._
 
 object PaddingVersion3 {
 
-  val numRows = 1000000000
-  val initChar = "+"
-  val padChar = "-"
-  val maxChars = 100
-
   def main(args: Array[String]): Unit = {
     // Initialize Spark Session
     val spark = SparkSession.builder
@@ -16,11 +11,18 @@ object PaddingVersion3 {
       //.config("spark.sql.adaptive.enabled","false")
       .getOrCreate()
 
+    // Define constants
+    val numRows = spark.sparkContext.defaultParallelism * 10000000
+    val initChar = "+"
+    val padChar = "-"
+    val maxChars = 100
+
     // Create and populate a new dataframe
     val startPopulating = System.currentTimeMillis()
     val populatedDf = spark.range(numRows)
-      .withColumn("str", lit("+"))
+      .withColumn("str", lit(initChar))
       .drop("id")
+    populatedDf.cache().count()
     val timePopulating = System.currentTimeMillis() - startPopulating
 
     // Define the UDF to pad a string with a character on both sides
@@ -32,10 +34,8 @@ object PaddingVersion3 {
     })
 
     // Apply the padding UDF, replacing the existing column
-    val paddedDf = populatedDf.withColumn("str", padStringUDF(col("str"), lit(maxChars)))
-
-    // Write the dataframe using no-op
     val startPadding = System.currentTimeMillis()
+    val paddedDf = populatedDf.withColumn("str", padStringUDF(col("str"), lit(maxChars)))
     //paddedDf.filter("str is not null").count()
     paddedDf.write.format("noop").mode("overwrite").save()
     val timePadding = System.currentTimeMillis() - startPadding
